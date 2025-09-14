@@ -13,7 +13,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 EXTENSION_DIR="$(pwd)"
-LSP_DIR="../traverse-lsp"
+LSP_DIR=".."
 BINARY_NAME="traverse-lsp-darwin-aarch64"
 VERSION=$(grep '"version"' package.json | cut -d '"' -f 4)
 
