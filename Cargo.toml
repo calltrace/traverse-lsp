@@ -1,0 +1,49 @@
+[package]
+name = "traverse-lsp"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "traverse_lsp"
+path = "src/lib.rs"
+
+[[bin]]
+name = "traverse-lsp"
+path = "src/main.rs"
+
+[dependencies]
+# LSP
+lsp-server = "0.7"
+lsp-types = "0.95"
+
+# Async runtime
+tokio = { version = "1.36", features = ["full"] }
+futures = "0.3"
+
+# Data structures
+dashmap = "5.5"
+once_cell = "1.19"
+
+# Error handling
+anyhow = "1.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Traverse integration
+graph = { git = "https://github.com/calltrace/traverse", package = "graph" }
+mermaid = { git = "https://github.com/calltrace/traverse", package = "mermaid" }
+tree-sitter = "0.25"
+tree-sitter-solidity = { git = "https://github.com/JoranHonig/tree-sitter-solidity" }
+
+# File system
+walkdir = "2.4"
+
+[dev-dependencies]
+# For testing
+tempfile = "3.8"
