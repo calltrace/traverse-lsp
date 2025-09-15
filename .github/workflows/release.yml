@@ -165,7 +165,7 @@ jobs:
               codesign --sign - --force dist/${{ matrix.binary_name }}
             else
               echo "Signing with identity: $SIGNING_HASH"
-              codesign --force --sign "$SIGNING_HASH" --timestamp --options runtime dist/${{ matrix.binary_name }}
+              codesign --force --sign "$SIGNING_HASH" dist/${{ matrix.binary_name }}
             fi
           fi
           
