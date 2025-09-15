@@ -1,0 +1,209 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger on version tags like v0.1.0
+
+permissions:
+  contents: write # Needed to create releases
+
+jobs:
+  create_release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          body: |
+            ## Traverse LSP Server ${{ github.ref_name }}
+            
+            Language Server Protocol implementation for Solidity that generates call graphs and sequence diagrams.
+            
+            ### Platform-specific binaries:
+            - **macOS Intel**: `traverse-lsp-x86_64-apple-darwin`
+            - **macOS Apple Silicon**: `traverse-lsp-aarch64-apple-darwin`
+            - **Linux Intel**: `traverse-lsp-x86_64-unknown-linux-gnu`
+            - **Linux ARM**: `traverse-lsp-aarch64-unknown-linux-gnu`
+            - **Windows Intel**: `traverse-lsp-x86_64-pc-windows-msvc.exe`
+            - **Windows ARM**: `traverse-lsp-aarch64-pc-windows-msvc.exe`
+            
+            ### Installation
+            Download the appropriate binary for your platform and make it executable (Unix systems):
+            ```bash
+            chmod +x traverse-lsp-*
+            ```
+            
+            ### VS Code Extension
+            The VS Code extension is available at: https://github.com/calltrace/traverse-vscode
+
+  build_binaries:
+    name: Build ${{ matrix.binary_name }}
+    needs: create_release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          # macOS Intel
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            binary_name: traverse-lsp-x86_64-apple-darwin
+            
+          # macOS Apple Silicon
+          - os: macos-14
+            target: aarch64-apple-darwin
+            binary_name: traverse-lsp-aarch64-apple-darwin
+            
+          # Linux Intel
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary_name: traverse-lsp-x86_64-unknown-linux-gnu
+            
+          # Linux ARM
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            binary_name: traverse-lsp-aarch64-unknown-linux-gnu
+            use_cross: true
+            
+          # Windows Intel
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary_name: traverse-lsp-x86_64-pc-windows-msvc.exe
+            
+          # Windows ARM
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            binary_name: traverse-lsp-aarch64-pc-windows-msvc.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation tool
+        if: matrix.use_cross
+        run: |
+          cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build traverse-lsp
+        shell: bash
+        run: |
+          if [[ "${{ matrix.use_cross }}" == "true" ]]; then
+            cross build --release --target ${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
+          fi
+
+      - name: Prepare binary
+        shell: bash
+        run: |
+          # Create dist directory
+          mkdir -p dist
+          
+          # Copy and rename binary based on platform
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            cp target/${{ matrix.target }}/release/traverse-lsp.exe dist/${{ matrix.binary_name }}
+          else
+            cp target/${{ matrix.target }}/release/traverse-lsp dist/${{ matrix.binary_name }}
+            chmod +x dist/${{ matrix.binary_name }}
+          fi
+
+      - name: Import Apple Certificate (macOS only)
+        if: startsWith(matrix.os, 'macos')
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          # Skip if certificate not configured
+          if [ -z "$APPLE_CERTIFICATE_BASE64" ]; then
+            echo "Apple certificate not configured, skipping signing"
+            exit 0
+          fi
+          
+          # Create temporary keychain
+          security create-keychain -p temp-password build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p temp-password build.keychain
+          security set-keychain-settings -lut 21600 build.keychain
+          
+          # Add to search list
+          security list-keychains -d user -s build.keychain $(security list-keychains -d user | sed s/\"//g)
+          
+          # Import certificate
+          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > certificate.p12
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -A -T /usr/bin/codesign
+          
+          # Clean up
+          rm certificate.p12
+
+      - name: Code Sign Binary (macOS only)
+        if: startsWith(matrix.os, 'macos')
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          # Skip if signing identity not configured
+          if [ -z "$APPLE_SIGNING_IDENTITY" ]; then
+            echo "Signing identity not configured, using ad-hoc signing"
+            codesign --sign - --force dist/${{ matrix.binary_name }}
+          else
+            # Find signing identity
+            SIGNING_HASH=$(security find-identity -v -p codesigning build.keychain | grep "$APPLE_SIGNING_IDENTITY" | grep -oE "[0-9A-F]{40}" | head -n 1)
+            
+            if [ -z "$SIGNING_HASH" ]; then
+              echo "Could not find signing identity, using ad-hoc signing"
+              codesign --sign - --force dist/${{ matrix.binary_name }}
+            else
+              echo "Signing with identity: $SIGNING_HASH"
+              codesign --force --sign "$SIGNING_HASH" --timestamp --options runtime dist/${{ matrix.binary_name }} -v
+            fi
+          fi
+          
+          # Verify signature
+          codesign --verify --verbose dist/${{ matrix.binary_name }}
+
+      - name: Compress binary
+        shell: bash
+        run: |
+          cd dist
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            # Create zip for Windows
+            7z a ${{ matrix.binary_name }}.zip ${{ matrix.binary_name }}
+            echo "ASSET_PATH=${{ matrix.binary_name }}.zip" >> $GITHUB_ENV
+            echo "ASSET_CONTENT_TYPE=application/zip" >> $GITHUB_ENV
+          else
+            # Create tar.gz for Unix systems
+            tar czf ${{ matrix.binary_name }}.tar.gz ${{ matrix.binary_name }}
+            echo "ASSET_PATH=${{ matrix.binary_name }}.tar.gz" >> $GITHUB_ENV
+            echo "ASSET_CONTENT_TYPE=application/gzip" >> $GITHUB_ENV
+          fi
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ./dist/${{ env.ASSET_PATH }}
+          asset_name: ${{ env.ASSET_PATH }}
+          asset_content_type: ${{ env.ASSET_CONTENT_TYPE }}
+
+      - name: Upload Raw Binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ./dist/${{ matrix.binary_name }}
+          asset_name: ${{ matrix.binary_name }}
+          asset_content_type: application/octet-stream
