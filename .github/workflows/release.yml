@@ -53,7 +53,7 @@ jobs:
       matrix:
         include:
           # macOS Intel
-          - os: macos-13
+          - os: macos-latest
             target: x86_64-apple-darwin
             binary_name: traverse-lsp-x86_64-apple-darwin
             
@@ -120,7 +120,7 @@ jobs:
           fi
 
       - name: Import Apple Certificate (macOS only)
-        if: startsWith(matrix.os, 'macos-')
+        if: startsWith(matrix.os, 'macos')
         env:
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -148,7 +148,7 @@ jobs:
           rm certificate.p12
 
       - name: Code Sign Binary (macOS only)
-        if: startsWith(matrix.os, 'macos-')
+        if: startsWith(matrix.os, 'macos')
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
