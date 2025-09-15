@@ -4,14 +4,6 @@ Cargo.lock
 **/*.rs.bk
 *.pdb
 
-# VSCode Extension
-vscode-extension/node_modules/
-vscode-extension/out/
-vscode-extension/dist/
-vscode-extension/*.vsix
-vscode-extension/.vscode-test/
-vscode-extension/.vscode-test-web/
-
 # Node.js
 node_modules/
 npm-debug.log*

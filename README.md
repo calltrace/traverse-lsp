@@ -36,7 +36,7 @@ All diagrams are generated in:
 
 ### VS Code
 
-A fully-featured extension is available in the `vscode-extension/` directory. See [vscode-extension/README.md](../vscode-extension/README.md) for installation instructions.
+A fully-featured extension is available at https://github.com/calltrace/traverse-vscode
 
 ### Neovim
 
