@@ -168,7 +168,6 @@ jobs:
                        --sign "$SIGNING_IDENTITY" \
                        --timestamp \
                        --options runtime \
-                       --entitlements /dev/null \
                        dist/${{ matrix.binary_name }}
               
               echo "Signing completed"
