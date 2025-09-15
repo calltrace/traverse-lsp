@@ -17,10 +17,12 @@ jobs:
     steps:
       - name: Create Release
         id: create_release
-        uses: softprops/action-gh-release@v1
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
           body: |
@@ -36,12 +38,6 @@ jobs:
             - **Windows Intel**: `traverse-lsp-x86_64-pc-windows-msvc.exe`
             - **Windows ARM**: `traverse-lsp-aarch64-pc-windows-msvc.exe`
             
-            ### Installation
-            Download the appropriate binary for your platform and make it executable (Unix systems):
-            ```bash
-            chmod +x traverse-lsp-*
-            ```
-            
             ### VS Code Extension
             The VS Code extension is available at: https://github.com/calltrace/traverse-vscode
 
@@ -56,37 +52,43 @@ jobs:
           - os: macos-latest
             target: x86_64-apple-darwin
             binary_name: traverse-lsp-x86_64-apple-darwin
+            output_name: traverse-lsp
             
           # macOS Apple Silicon
           - os: macos-14
             target: aarch64-apple-darwin
             binary_name: traverse-lsp-aarch64-apple-darwin
+            output_name: traverse-lsp
             
           # Linux Intel
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             binary_name: traverse-lsp-x86_64-unknown-linux-gnu
+            output_name: traverse-lsp
             
           # Linux ARM
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             binary_name: traverse-lsp-aarch64-unknown-linux-gnu
+            output_name: traverse-lsp
             use_cross: true
             
           # Windows Intel
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             binary_name: traverse-lsp-x86_64-pc-windows-msvc.exe
+            output_name: traverse-lsp.exe
             
           # Windows ARM
           - os: windows-latest
             target: aarch64-pc-windows-msvc
             binary_name: traverse-lsp-aarch64-pc-windows-msvc.exe
+            output_name: traverse-lsp.exe
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Rust
+      - name: Set up Rust for target ${{ matrix.target }}
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -96,13 +98,13 @@ jobs:
         run: |
           cargo install cross --git https://github.com/cross-rs/cross
 
-      - name: Build traverse-lsp
+      - name: Build binary
         shell: bash
         run: |
           if [[ "${{ matrix.use_cross }}" == "true" ]]; then
-            cross build --release --target ${{ matrix.target }}
+            cross build --verbose --release --target ${{ matrix.target }}
           else
-            cargo build --release --target ${{ matrix.target }}
+            cargo build --verbose --release --target ${{ matrix.target }}
           fi
 
       - name: Prepare binary
@@ -111,68 +113,121 @@ jobs:
           # Create dist directory
           mkdir -p dist
           
-          # Copy and rename binary based on platform
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            cp target/${{ matrix.target }}/release/traverse-lsp.exe dist/${{ matrix.binary_name }}
-          else
-            cp target/${{ matrix.target }}/release/traverse-lsp dist/${{ matrix.binary_name }}
+          # Copy and rename binary
+          cp target/${{ matrix.target }}/release/${{ matrix.output_name }} dist/${{ matrix.binary_name }}
+          
+          # Make executable on Unix
+          if [[ "${{ matrix.os }}" != "windows-latest" ]]; then
             chmod +x dist/${{ matrix.binary_name }}
           fi
 
-      - name: Import Apple Certificate (macOS only)
-        if: startsWith(matrix.os, 'macos')
+      # macOS Code Signing
+      - name: Import Apple Certificate
+        if: startsWith(matrix.os, 'macos') && env.APPLE_CERTIFICATE_BASE64 != ''
         env:
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
-          # Skip if certificate not configured
-          if [ -z "$APPLE_CERTIFICATE_BASE64" ]; then
-            echo "Apple certificate not configured, skipping signing"
-            exit 0
-          fi
+          echo "Importing Apple certificate..."
           
           # Create temporary keychain
-          security create-keychain -p temp-password build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p temp-password build.keychain
-          security set-keychain-settings -lut 21600 build.keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 32)
           
-          # Add to search list
-          security list-keychains -d user -s build.keychain $(security list-keychains -d user | sed s/\"//g)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           
           # Import certificate
           echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > certificate.p12
-          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -A -T /usr/bin/codesign
-          
-          # Clean up
+          security import certificate.p12 -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
           rm certificate.p12
+          
+          # Add to search list
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/"//g')
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          
+          echo "Certificate imported successfully"
 
-      - name: Code Sign Binary (macOS only)
+      - name: Code Sign Binary
         if: startsWith(matrix.os, 'macos')
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
-          # Skip if signing identity not configured
-          if [ -z "$APPLE_SIGNING_IDENTITY" ]; then
-            echo "Signing identity not configured, using ad-hoc signing"
-            codesign --sign - --force dist/${{ matrix.binary_name }}
-          else
-            # Find signing identity
-            SIGNING_HASH=$(security find-identity -v -p codesigning build.keychain | grep "$APPLE_SIGNING_IDENTITY" | grep -oE "[0-9A-F]{40}" | head -n 1)
+          if [ -n "$APPLE_SIGNING_IDENTITY" ]; then
+            echo "Signing with Developer ID: $APPLE_SIGNING_IDENTITY"
             
-            if [ -z "$SIGNING_HASH" ]; then
-              echo "Could not find signing identity, using ad-hoc signing"
-              codesign --sign - --force dist/${{ matrix.binary_name }}
+            # Find the signing identity
+            SIGNING_IDENTITY=$(security find-identity -v -p codesigning | grep "$APPLE_SIGNING_IDENTITY" | head -1 | awk '{print $2}')
+            
+            if [ -n "$SIGNING_IDENTITY" ]; then
+              echo "Found signing identity: $SIGNING_IDENTITY"
+              
+              # Sign with all required flags for notarization
+              codesign --force \
+                       --sign "$SIGNING_IDENTITY" \
+                       --timestamp \
+                       --options runtime \
+                       --entitlements /dev/null \
+                       dist/${{ matrix.binary_name }}
+              
+              echo "Signing completed"
+              
+              # Verify signature
+              codesign --verify --deep --strict dist/${{ matrix.binary_name }}
+              echo "Signature verified"
             else
-              echo "Signing with identity: $SIGNING_HASH"
-              codesign --force --sign "$SIGNING_HASH" dist/${{ matrix.binary_name }}
+              echo "Signing identity not found, using ad-hoc signing"
+              codesign --force --sign - dist/${{ matrix.binary_name }}
             fi
+          else
+            echo "No signing identity configured, using ad-hoc signing"
+            codesign --force --sign - dist/${{ matrix.binary_name }}
           fi
+
+      # macOS Notarization
+      - name: Notarize Binary
+        if: startsWith(matrix.os, 'macos') && env.APPLE_API_KEY_ID != ''
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_KEY_ISSUER: ${{ secrets.APPLE_API_KEY_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        timeout-minutes: 15
+        run: |
+          echo "Starting notarization process..."
           
-          # Quick signature check (skip verbose to prevent hanging)
-          echo "Verifying signature..."
-          codesign --verify dist/${{ matrix.binary_name }} || echo "Signature verification failed (non-critical)"
-          echo "Signature step completed"
+          # Create API key file
+          API_KEY_PATH=$RUNNER_TEMP/api-key.json
+          cat > "$API_KEY_PATH" << EOF
+          {
+            "key": "$APPLE_API_KEY",
+            "key_id": "$APPLE_API_KEY_ID",
+            "issuer": "$APPLE_API_KEY_ISSUER"
+          }
+          EOF
+          
+          # Create ZIP for notarization
+          ZIP_PATH=$RUNNER_TEMP/${{ matrix.binary_name }}.zip
+          ditto -c -k --keepParent dist/${{ matrix.binary_name }} "$ZIP_PATH"
+          
+          echo "Submitting for notarization..."
+          
+          # Submit for notarization using notarytool
+          xcrun notarytool submit "$ZIP_PATH" \
+            --key "$APPLE_API_KEY" \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_KEY_ISSUER" \
+            --wait \
+            --timeout 10m \
+            --verbose
+          
+          echo "Notarization completed"
+          
+          # Staple the notarization ticket (will fail for CLI tools, that's OK)
+          xcrun stapler staple dist/${{ matrix.binary_name }} || echo "Stapling not supported for CLI tools"
+          
+          # Clean up
+          rm -f "$API_KEY_PATH" "$ZIP_PATH"
 
       - name: Compress binary
         shell: bash
@@ -190,7 +245,7 @@ jobs:
             echo "ASSET_CONTENT_TYPE=application/gzip" >> $GITHUB_ENV
           fi
 
-      - name: Upload Release Asset
+      - name: Upload Release Asset (Archive)
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -200,7 +255,7 @@ jobs:
           asset_name: ${{ env.ASSET_PATH }}
           asset_content_type: ${{ env.ASSET_CONTENT_TYPE }}
 
-      - name: Upload Raw Binary
+      - name: Upload Release Asset (Raw Binary)
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
