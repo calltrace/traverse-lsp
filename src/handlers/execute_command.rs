@@ -23,7 +23,7 @@ pub fn execute_command(
             workspace_command(conn, id.clone(), params, generator_tx, |uris, tx| {
                 show_message(conn, MessageType::INFO, format!("Analyzing {} files...", uris.len()))?;
                 Ok(GenerationRequest::GenerateCallGraphDiagram {
-                    uri: uris[0].clone(),
+                    uris,
                     contract_name: None,
                     tx,
                 })
@@ -33,7 +33,7 @@ pub fn execute_command(
             workspace_command(conn, id.clone(), params, generator_tx, |uris, tx| {
                 show_message(conn, MessageType::INFO, format!("Generating diagram for {} files...", uris.len()))?;
                 Ok(GenerationRequest::GenerateMermaidFlowchart {
-                    uri: uris[0].clone(),
+                    uris,
                     contract_name: None,
                     tx,
                 })
@@ -43,7 +43,7 @@ pub fn execute_command(
             workspace_command(conn, id.clone(), params, generator_tx, |uris, tx| {
                 show_message(conn, MessageType::INFO, format!("Generating all for {} files...", uris.len()))?;
                 Ok(GenerationRequest::GenerateAllDiagrams {
-                    uri: uris[0].clone(),
+                    uris,
                     contract_name: None,
                     tx,
                 })
@@ -53,7 +53,7 @@ pub fn execute_command(
             workspace_command(conn, id.clone(), params, generator_tx, |uris, tx| {
                 show_message(conn, MessageType::INFO, format!("Analyzing storage for {} files...", uris.len()))?;
                 Ok(GenerationRequest::GenerateStorageLayout {
-                    uri: uris[0].clone(),
+                    uris,
                     contract_name: String::new(),
                     tx,
                 })

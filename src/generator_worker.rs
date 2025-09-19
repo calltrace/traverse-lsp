@@ -19,22 +19,22 @@ use tracing::{debug, info};
 pub enum GenerationRequest {
     Shutdown,
     GenerateCallGraphDiagram {
-        uri: Url,
+        uris: Vec<Url>,
         contract_name: Option<String>,
         tx: oneshot::Sender<Result<String>>,
     },
     GenerateMermaidFlowchart {
-        uri: Url,
+        uris: Vec<Url>,
         contract_name: Option<String>,
         tx: oneshot::Sender<Result<String>>,
     },
     GenerateAllDiagrams {
-        uri: Url,
+        uris: Vec<Url>,
         contract_name: Option<String>,
         tx: oneshot::Sender<Result<String>>,
     },
     GenerateStorageLayout {
-        uri: Url,
+        uris: Vec<Url>,
         contract_name: String,
         tx: oneshot::Sender<Result<String>>,
     },
@@ -61,53 +61,61 @@ impl GeneratorWorker {
                     break;
                 }
                 GenerationRequest::GenerateCallGraphDiagram {
-                    uri,
+                    uris,
                     contract_name,
                     tx,
                 } => {
-                    debug!("Generating call graph diagram (DOT) for {:?} in {}", contract_name, uri);
-                    let result = self.generate_call_graph_diagram(&uri, contract_name.as_deref());
+                    debug!("Generating call graph diagram (DOT) for {:?} in {} files", contract_name, uris.len());
+                    let result = self.generate_call_graph_diagram(&uris, contract_name.as_deref());
                     let _ = tx.send(result);
                 }
                 GenerationRequest::GenerateMermaidFlowchart {
-                    uri,
+                    uris,
                     contract_name,
                     tx,
                 } => {
-                    debug!("Generating Mermaid flowchart for {:?} in {}", contract_name, uri);
-                    let result = self.generate_mermaid_flowchart(&uri, contract_name.as_deref());
+                    debug!("Generating Mermaid flowchart for {:?} in {} files", contract_name, uris.len());
+                    let result = self.generate_mermaid_flowchart(&uris, contract_name.as_deref());
                     let _ = tx.send(result);
                 }
                 GenerationRequest::GenerateAllDiagrams {
-                    uri,
+                    uris,
                     contract_name,
                     tx,
                 } => {
-                    debug!("Generating all diagrams for {:?} in {}", contract_name, uri);
-                    let result = self.generate_all_diagrams(&uri, contract_name.as_deref());
+                    debug!("Generating all diagrams for {:?} in {} files", contract_name, uris.len());
+                    let result = self.generate_all_diagrams(&uris, contract_name.as_deref());
                     let _ = tx.send(result);
                 }
                 GenerationRequest::GenerateStorageLayout {
-                    uri,
+                    uris,
                     contract_name,
                     tx,
                 } => {
-                    debug!("Generating storage layout for {} in {}", contract_name, uri);
-                    let result = self.generate_storage_layout(&uri, &contract_name);
+                    debug!("Generating storage layout for {} in {} files", contract_name, uris.len());
+                    let result = self.generate_storage_layout(&uris, &contract_name);
                     let _ = tx.send(result);
                 }
             }
         }
     }
 
-    fn get_or_build_call_graph(&mut self, uri: &Url) -> Result<CallGraph> {
-        let path = uri.to_file_path().map_err(|_| anyhow::anyhow!("Invalid URI"))?;
-        let content = std::fs::read_to_string(path)?;
-        self.adapter.build_call_graph(&content)
+    fn get_or_build_call_graph(&mut self, uris: &[Url]) -> Result<CallGraph> {
+        let mut combined_source = String::new();
+        
+        // Read and combine all Solidity files
+        for uri in uris {
+            let path = uri.to_file_path().map_err(|_| anyhow::anyhow!("Invalid URI"))?;
+            let content = std::fs::read_to_string(&path)?;
+            combined_source.push_str(&content);
+            combined_source.push('\n');
+        }
+        
+        self.adapter.build_call_graph(&combined_source)
     }
 
-    fn generate_call_graph_diagram(&mut self, uri: &Url, _contract_name: Option<&str>) -> Result<String> {
-        let call_graph = self.get_or_build_call_graph(uri)?;
+    fn generate_call_graph_diagram(&mut self, uris: &[Url], _contract_name: Option<&str>) -> Result<String> {
+        let call_graph = self.get_or_build_call_graph(uris)?;
         
         let dot_diagram = self.adapter.generate_dot_diagram(&call_graph)?;
         Ok(serde_json::json!({
@@ -115,8 +123,8 @@ impl GeneratorWorker {
         }).to_string())
     }
 
-    fn generate_mermaid_flowchart(&mut self, uri: &Url, _contract_name: Option<&str>) -> Result<String> {
-        let call_graph = self.get_or_build_call_graph(uri)?;
+    fn generate_mermaid_flowchart(&mut self, uris: &[Url], _contract_name: Option<&str>) -> Result<String> {
+        let call_graph = self.get_or_build_call_graph(uris)?;
         
         let mermaid_diagram = self.adapter.generate_mermaid_flowchart(&call_graph)?;
         Ok(serde_json::json!({
@@ -124,8 +132,8 @@ impl GeneratorWorker {
         }).to_string())
     }
     
-    fn generate_all_diagrams(&mut self, uri: &Url, _contract_name: Option<&str>) -> Result<String> {
-        let call_graph = self.get_or_build_call_graph(uri)?;
+    fn generate_all_diagrams(&mut self, uris: &[Url], _contract_name: Option<&str>) -> Result<String> {
+        let call_graph = self.get_or_build_call_graph(uris)?;
         
         let dot_diagram = self.adapter.generate_dot_diagram(&call_graph)?;
         let mermaid_diagram = self.adapter.generate_mermaid_flowchart(&call_graph)?;
@@ -135,12 +143,12 @@ impl GeneratorWorker {
         }).to_string())
     }
 
-    fn generate_storage_layout(&mut self, uri: &Url, _contract_name: &str) -> Result<String> {
-        let call_graph = self.get_or_build_call_graph(uri)?;
+    fn generate_storage_layout(&mut self, uris: &[Url], _contract_name: &str) -> Result<String> {
+        let call_graph = self.get_or_build_call_graph(uris)?;
         
         let storage_summary_map = graph::storage_access::analyze_storage_access(&call_graph);
         let mut md = String::from("# Storage Access Analysis\n\n");
-        md.push_str(&format!("**File:** {}\n\n", uri.path()));
+        md.push_str(&format!("**Files analyzed:** {} Solidity files\n\n", uris.len()));
         md.push_str("| Endpoint | Reads | Writes |\n");
         md.push_str("|----------|-------|--------|\n");
         
