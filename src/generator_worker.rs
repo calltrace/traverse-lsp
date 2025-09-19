@@ -10,7 +10,7 @@
 
 use crate::traverse_adapter::TraverseAdapter;
 use anyhow::Result;
-use graph::cg::CallGraph;
+use traverse_graph::cg::CallGraph;
 use lsp_types::Url;
 use std::sync::mpsc;
 use tokio::sync::oneshot;
@@ -146,7 +146,7 @@ impl GeneratorWorker {
     fn generate_storage_layout(&mut self, uris: &[Url], _contract_name: &str) -> Result<String> {
         let call_graph = self.get_or_build_call_graph(uris)?;
         
-        let storage_summary_map = graph::storage_access::analyze_storage_access(&call_graph);
+        let storage_summary_map = traverse_graph::storage_access::analyze_storage_access(&call_graph);
         let mut md = String::from("# Storage Access Analysis\n\n");
         md.push_str(&format!("**Files analyzed:** {} Solidity files\n\n", uris.len()));
         md.push_str("| Endpoint | Reads | Writes |\n");

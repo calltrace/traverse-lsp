@@ -36,10 +36,9 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Traverse integration
-graph = { git = "https://github.com/calltrace/traverse", package = "graph" }
-mermaid = { git = "https://github.com/calltrace/traverse", package = "mermaid" }
+traverse-graph = "0.1.1"
+traverse-mermaid = "0.1.1"
 tree-sitter = "0.25"
-tree-sitter-solidity = { git = "https://github.com/JoranHonig/tree-sitter-solidity" }
 
 # File system
 walkdir = "2.4"

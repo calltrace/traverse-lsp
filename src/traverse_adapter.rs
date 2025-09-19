@@ -8,11 +8,11 @@
 //! caching or other optimizations transparently in the future.
 
 use anyhow::Result;
-use graph::cg::{CallGraph, CallGraphGeneratorPipeline, CallGraphGeneratorInput, CallGraphGeneratorContext};
-use graph::cg_dot::{CgToDot, DotExportConfig};
-use graph::cg_mermaid::{MermaidGenerator, ToSequenceDiagram};
-use graph::parser::{parse_solidity, get_solidity_language};
-use graph::steps::{CallsHandling, ContractHandling};
+use traverse_graph::cg::{CallGraph, CallGraphGeneratorPipeline, CallGraphGeneratorInput, CallGraphGeneratorContext};
+use traverse_graph::cg_dot::{CgToDot, DotExportConfig};
+use traverse_graph::cg_mermaid::{MermaidGenerator, ToSequenceDiagram};
+use traverse_graph::parser::{parse_solidity, get_solidity_language};
+use traverse_graph::steps::{CallsHandling, ContractHandling};
 use std::collections::HashMap;
 
 pub struct TraverseAdapter {}
@@ -46,7 +46,7 @@ impl TraverseAdapter {
     pub fn generate_mermaid_flowchart(&self, graph: &CallGraph) -> Result<String> {
         let generator = MermaidGenerator::new();
         let sequence_diagram = generator.to_sequence_diagram(graph);
-        let output = mermaid::sequence_diagram_writer::write_diagram(&sequence_diagram);
+        let output = traverse_mermaid::sequence_diagram_writer::write_diagram(&sequence_diagram);
         Ok(output)
     }
 
