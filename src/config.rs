@@ -1,5 +1,6 @@
 
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
@@ -23,6 +24,7 @@ pub struct GenerationConfig {
     pub max_nodes: usize,
     pub include_storage: bool,
     pub include_modifiers: bool,
+    pub mermaid: MermaidConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -33,6 +35,21 @@ pub enum DiagramType {
     Architecture,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct MermaidConfig {
+    pub no_chunk: bool,
+    pub chunk_dir: PathBuf,
+}
+
+impl Default for MermaidConfig {
+    fn default() -> Self {
+        Self {
+            no_chunk: false,
+            chunk_dir: PathBuf::from("./mermaid-chunks/"),
+        }
+    }
+}
 
 impl Default for AnalysisConfig {
     fn default() -> Self {
@@ -51,6 +68,7 @@ impl Default for GenerationConfig {
             max_nodes: 100,
             include_storage: true,
             include_modifiers: true,
+            mermaid: MermaidConfig::default(),
         }
     }
 }

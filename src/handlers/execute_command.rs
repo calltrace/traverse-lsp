@@ -35,6 +35,7 @@ pub fn execute_command(
                 Ok(GenerationRequest::GenerateMermaidFlowchart {
                     uris,
                     contract_name: None,
+                    no_chunk: false,
                     tx,
                 })
             })

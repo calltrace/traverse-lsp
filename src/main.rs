@@ -1,10 +1,8 @@
-//! Main LSP Server Entry Point
+//! Traverse LSP Server
 //! 
-//! This server uses stdio for communication to ensure compatibility with any LSP client,
-//! whether it's VS Code, Neovim, or Emacs. Heavy computational tasks like diagram generation
-//! are offloaded to a dedicated worker thread, keeping the main message loop responsive
-//! to user interactions. This architecture prevents UI freezes when analyzing large
-//! smart contracts with complex call graphs.
+//! Provides Language Server Protocol support for Solidity smart contract analysis.
+//! Uses a dedicated worker thread for expensive operations like diagram generation
+//! to keep the main message loop responsive.
 
 use crate::{
     generator_worker::{GenerationRequest, GeneratorWorker},
