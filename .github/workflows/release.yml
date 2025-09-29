@@ -9,8 +9,13 @@ permissions:
   contents: write # Needed to create releases
 
 jobs:
+  # Run tests first
+  test:
+    uses: ./.github/workflows/test.yml
+    
   create_release:
     name: Create Release
+    needs: test  # Only create release if tests pass
     runs-on: ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
