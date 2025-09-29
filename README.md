@@ -1,6 +1,16 @@
 # Traverse LSP Server
 
-Language Server Protocol implementation for Solidity that generates call graphs and sequence diagrams at workspace level.
+[![Version](https://img.shields.io/badge/version-0.1.4-blue)](https://github.com/calltrace/traverse-lsp/releases)
+[![Traverse](https://img.shields.io/badge/traverse-0.1.4-green)](https://github.com/calltrace/traverse)
+
+Language Server Protocol implementation for Solidity that generates call graphs and sequence diagrams at workspace level. Built on [Traverse](https://github.com/calltrace/traverse) analysis engine v0.1.4.
+
+## Features
+
+- **Automatic Mermaid Chunking**: Large sequence diagrams are automatically split into manageable chunks
+- **Multi-file Analysis**: Analyzes entire Solidity workspaces, not just single files
+- **Background Processing**: Diagram generation runs in separate thread to keep UI responsive
+- **Multiple Output Formats**: DOT, Mermaid, and Markdown formats
 
 ## Build
 
@@ -20,17 +30,39 @@ The LSP server communicates via stdio and operates exclusively at workspace leve
 
 The server implements the following workspace-level commands via `workspace/executeCommand`:
 
-- `traverse.generateCallGraph.workspace` - Generate call graph for all contracts
-- `traverse.generateSequenceDiagram.workspace` - Create sequence diagrams  
-- `traverse.generateAll.workspace` - Generate all diagram types
-- `traverse.analyzeStorage.workspace` - Analyze storage layout
+| Command | Description | Parameters |
+|---------|-------------|------------|
+| `traverse.generateCallGraph.workspace` | Generate call graph for all contracts | `workspace_folder`: string |
+| `traverse.generateSequenceDiagram.workspace` | Create sequence diagrams | `workspace_folder`: string<br>`no_chunk`: boolean (optional, default: false) |
+| `traverse.generateAll.workspace` | Generate all diagram types | `workspace_folder`: string |
+| `traverse.analyzeStorage.workspace` | Analyze storage layout | `workspace_folder`: string |
+
+#### Example Command Request
+
+```json
+{
+  "command": "traverse.generateSequenceDiagram.workspace",
+  "arguments": [{
+    "workspace_folder": "/path/to/project",
+    "no_chunk": false
+  }]
+}
+```
 
 ### Output
 
 All diagrams are generated in:
 - **DOT format** for call graphs (GraphViz compatible)
-- **Mermaid format** for sequence diagrams
+- **Mermaid format** for sequence diagrams (with automatic chunking for large diagrams)
 - **Markdown** for storage analysis
+
+#### Mermaid Chunking
+
+Large sequence diagrams are automatically split into manageable chunks (default: 400 lines per chunk) to prevent rendering issues. This behavior can be controlled:
+
+- **Default**: Chunking is enabled automatically for large diagrams
+- **Disable chunking**: Pass `no_chunk: true` in command arguments
+- **Output**: Chunks are saved to `./mermaid-chunks/` directory with an index file
 
 ## IDE Integration
 

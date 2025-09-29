@@ -30,12 +30,14 @@ pub fn execute_command(
             })
         }
         commands::GENERATE_SEQUENCE_DIAGRAM_WORKSPACE => {
-            workspace_command(conn, id.clone(), params, generator_tx, |uris, tx| {
+            let args = extract_args::<WorkspaceArgs>(&params, &id);
+            let no_chunk = args.as_ref().map(|a| a.no_chunk).unwrap_or(false);
+            workspace_command(conn, id.clone(), params, generator_tx, move |uris, tx| {
                 show_message(conn, MessageType::INFO, format!("Generating diagram for {} files...", uris.len()))?;
                 Ok(GenerationRequest::GenerateMermaidFlowchart {
                     uris,
                     contract_name: None,
-                    no_chunk: false,
+                    no_chunk,
                     tx,
                 })
             })
@@ -191,4 +193,6 @@ fn show_message(conn: &Connection, typ: MessageType, message: String) -> Result<
 #[derive(serde::Deserialize)]
 struct WorkspaceArgs {
     workspace_folder: String,
+    #[serde(default)]
+    no_chunk: bool,
 }
