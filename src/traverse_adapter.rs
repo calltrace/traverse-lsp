@@ -60,11 +60,7 @@ impl TraverseAdapter {
         let output = traverse_mermaid::sequence_diagram_writer::write_diagram(&sequence_diagram);
         
         if !config.no_chunk {
-            let chunk_dir = if config.chunk_dir == PathBuf::from("./mermaid-chunks/") {
-                None
-            } else {
-                Some(config.chunk_dir.as_path())
-            };
+            let chunk_dir = Some(config.chunk_dir.as_path());
             
             match traverse_mermaid::mermaid_chunker::chunk_mermaid_diagram(&output, chunk_dir) {
                 Ok(chunking_result) => {

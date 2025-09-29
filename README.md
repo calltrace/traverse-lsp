@@ -62,7 +62,7 @@ Large sequence diagrams are automatically split into manageable chunks (default:
 
 - **Default**: Chunking is enabled automatically for large diagrams
 - **Disable chunking**: Pass `no_chunk: true` in command arguments
-- **Output**: Chunks are saved to `./mermaid-chunks/` directory with an index file
+- **Output**: Chunks are saved to `./traverse-output/sequence-diagrams/chunks/` directory with an index file
 
 ## IDE Integration
 

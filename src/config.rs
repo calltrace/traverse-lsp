@@ -46,7 +46,7 @@ impl Default for MermaidConfig {
     fn default() -> Self {
         Self {
             no_chunk: false,
-            chunk_dir: PathBuf::from("./mermaid-chunks/"),
+            chunk_dir: PathBuf::from("./traverse-output/sequence-diagrams/chunks/"),
         }
     }
 }

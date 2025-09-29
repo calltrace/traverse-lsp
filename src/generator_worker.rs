@@ -126,7 +126,7 @@ impl GeneratorWorker {
         
         let config = MermaidConfig {
             no_chunk,
-            chunk_dir: PathBuf::from("./mermaid-chunks/"),
+            chunk_dir: PathBuf::from("./traverse-output/sequence-diagrams/chunks/"),
         };
         
         let result = self.adapter.generate_mermaid_with_config(&call_graph, &config)?;
