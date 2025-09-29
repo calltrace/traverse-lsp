@@ -5,5 +5,5 @@ pub mod handlers;
 pub mod traverse_adapter;
 pub mod utils;
 
-pub use config::Config;
+pub use config::MermaidConfig;
 pub use generator_worker::{GenerationRequest, GeneratorWorker};
