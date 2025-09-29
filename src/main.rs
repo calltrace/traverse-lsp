@@ -1,5 +1,5 @@
 //! Traverse LSP Server
-//! 
+//!
 //! Provides Language Server Protocol support for Solidity smart contract analysis.
 //! Uses a dedicated worker thread for expensive operations like diagram generation
 //! to keep the main message loop responsive.
@@ -12,13 +12,10 @@ use anyhow::Result;
 use lsp_server::{Connection, Message, Notification, Request, Response};
 use lsp_types::{
     request::{ExecuteCommand, Request as _},
-    CodeActionOptions, CompletionOptions,
-    InitializeParams, ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind,
+    CodeActionOptions, CompletionOptions, InitializeParams, ServerCapabilities,
+    TextDocumentSyncCapability, TextDocumentSyncKind,
 };
-use std::{
-    sync::mpsc,
-    thread,
-};
+use std::{sync::mpsc, thread};
 use tracing::info;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
@@ -41,9 +38,7 @@ fn main() -> Result<()> {
     let (connection, io_threads) = Connection::stdio();
 
     let server_capabilities = serde_json::to_value(ServerCapabilities {
-        text_document_sync: Some(TextDocumentSyncCapability::Kind(
-            TextDocumentSyncKind::FULL,
-        )),
+        text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
         completion_provider: Some(CompletionOptions::default()),
         hover_provider: None,
         code_lens_provider: None,
@@ -72,9 +67,7 @@ fn main_loop(connection: Connection, _init_params: InitializeParams) -> Result<(
     let (generator_tx, generator_rx) = mpsc::channel::<GenerationRequest>();
 
     let generator_thread = thread::spawn(move || {
-        GeneratorWorker::new()
-            .unwrap()
-            .run(generator_rx);
+        GeneratorWorker::new().unwrap().run(generator_rx);
     });
 
     for msg in &connection.receiver {

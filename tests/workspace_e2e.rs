@@ -70,15 +70,17 @@ contract DeFiVault {
 #[test]
 fn test_workspace_call_graph() {
     let adapter = TraverseAdapter::new().expect("Failed to create adapter");
-    let graph = adapter.build_call_graph(SIMPLE_CONTRACT).expect("Failed to build call graph");
-    
+    let graph = adapter
+        .build_call_graph(SIMPLE_CONTRACT)
+        .expect("Failed to build call graph");
+
     assert!(graph.nodes.len() > 0);
     assert!(graph.edges.len() > 0);
-    
+
     let has_constructor = graph.nodes.iter().any(|n| n.name == "SimpleToken");
     let has_transfer = graph.nodes.iter().any(|n| n.name == "transfer");
     let has_balance = graph.nodes.iter().any(|n| n.name == "balanceOf");
-    
+
     assert!(has_constructor);
     assert!(has_transfer);
     assert!(has_balance);
@@ -87,22 +89,30 @@ fn test_workspace_call_graph() {
 #[test]
 fn test_workspace_dot_generation() {
     let adapter = TraverseAdapter::new().expect("Failed to create adapter");
-    let graph = adapter.build_call_graph(COMPLEX_CONTRACT).expect("Failed to build call graph");
-    let dot = adapter.generate_dot_diagram(&graph).expect("Failed to generate DOT");
-    
+    let graph = adapter
+        .build_call_graph(COMPLEX_CONTRACT)
+        .expect("Failed to build call graph");
+    let dot = adapter
+        .generate_dot_diagram(&graph)
+        .expect("Failed to generate DOT");
+
     assert!(dot.contains("digraph"));
     assert!(dot.contains("DeFiVault"));
     assert!(dot.contains("deposit"));
     assert!(dot.contains("withdraw"));
-    assert!(dot.contains("->")); 
+    assert!(dot.contains("->"));
 }
 
 #[test]
 fn test_workspace_mermaid_generation() {
     let adapter = TraverseAdapter::new().expect("Failed to create adapter");
-    let graph = adapter.build_call_graph(SIMPLE_CONTRACT).expect("Failed to build call graph");
-    let mermaid = adapter.generate_mermaid_flowchart(&graph).expect("Failed to generate Mermaid");
-    
+    let graph = adapter
+        .build_call_graph(SIMPLE_CONTRACT)
+        .expect("Failed to build call graph");
+    let mermaid = adapter
+        .generate_mermaid_flowchart(&graph)
+        .expect("Failed to generate Mermaid");
+
     assert!(mermaid.contains("sequenceDiagram"));
     assert!(mermaid.contains("SimpleToken"));
     assert!(mermaid.contains("transfer"));

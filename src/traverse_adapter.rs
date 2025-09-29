@@ -1,17 +1,19 @@
 //! Bridge between LSP server and Traverse analysis library.
-//! 
+//!
 //! Isolates Traverse-specific logic from the LSP protocol layer,
 //! making it easier to upgrade or swap analysis engines.
 
+use crate::config::MermaidConfig;
 use anyhow::Result;
-use traverse_graph::cg::{CallGraph, CallGraphGeneratorPipeline, CallGraphGeneratorInput, CallGraphGeneratorContext};
-use traverse_graph::cg_dot::{CgToDot, DotExportConfig};
-use traverse_graph::cg_mermaid::{MermaidGenerator, ToSequenceDiagram};
-use traverse_graph::parser::{parse_solidity, get_solidity_language};
-use traverse_graph::steps::{CallsHandling, ContractHandling};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use crate::config::MermaidConfig;
+use traverse_graph::cg::{
+    CallGraph, CallGraphGeneratorContext, CallGraphGeneratorInput, CallGraphGeneratorPipeline,
+};
+use traverse_graph::cg_dot::{CgToDot, DotExportConfig};
+use traverse_graph::cg_mermaid::{MermaidGenerator, ToSequenceDiagram};
+use traverse_graph::parser::{get_solidity_language, parse_solidity};
+use traverse_graph::steps::{CallsHandling, ContractHandling};
 
 pub struct TraverseAdapter {}
 
@@ -28,16 +30,16 @@ impl TraverseAdapter {
             tree: parsed.tree,
             solidity_lang,
         };
-        
+
         let mut ctx = CallGraphGeneratorContext::default();
         let mut graph = CallGraph::new();
         let config: HashMap<String, String> = HashMap::new();
-        
+
         let mut pipeline = CallGraphGeneratorPipeline::new();
         pipeline.add_step(Box::new(ContractHandling::default()));
         pipeline.add_step(Box::new(CallsHandling::default()));
         pipeline.run(input, &mut ctx, &mut graph, &config)?;
-        
+
         Ok(graph)
     }
 
@@ -53,28 +55,35 @@ impl TraverseAdapter {
         let dot = graph.to_dot("call_graph", &config);
         Ok(dot)
     }
-    
-    pub fn generate_mermaid_with_config(&self, graph: &CallGraph, config: &MermaidConfig) -> Result<ChunkedMermaidResult> {
+
+    pub fn generate_mermaid_with_config(
+        &self,
+        graph: &CallGraph,
+        config: &MermaidConfig,
+    ) -> Result<ChunkedMermaidResult> {
         let generator = MermaidGenerator::new();
         let sequence_diagram = generator.to_sequence_diagram(graph);
         let output = traverse_mermaid::sequence_diagram_writer::write_diagram(&sequence_diagram);
-        
+
         if !config.no_chunk {
             let chunk_dir = Some(config.chunk_dir.as_path());
-            
+
             match traverse_mermaid::mermaid_chunker::chunk_mermaid_diagram(&output, chunk_dir) {
                 Ok(chunking_result) => {
                     let first_chunk_path = chunking_result.output_dir.join("chunk_001.mmd");
                     let first_chunk_content = std::fs::read_to_string(&first_chunk_path)
                         .unwrap_or_else(|_| output.clone());
-                    
+
                     Ok(ChunkedMermaidResult {
                         is_chunked: true,
                         content: first_chunk_content,
                         chunks: Some(vec![MermaidChunk {
                             id: 1,
                             content: output.clone(),
-                            filename: Some(format!("{} chunks generated", chunking_result.chunk_count)),
+                            filename: Some(format!(
+                                "{} chunks generated",
+                                chunking_result.chunk_count
+                            )),
                         }]),
                         chunk_dir: Some(chunking_result.output_dir),
                     })

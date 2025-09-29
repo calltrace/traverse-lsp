@@ -1,5 +1,7 @@
 # Traverse LSP Server
 
+[![Tests](https://github.com/calltrace/traverse-lsp/actions/workflows/test.yml/badge.svg)](https://github.com/calltrace/traverse-lsp/actions/workflows/test.yml)
+[![Release](https://img.shields.io/github/v/release/calltrace/traverse-lsp?display_name=tag)](https://github.com/calltrace/traverse-lsp/releases/latest)
 [![Version](https://img.shields.io/badge/version-0.1.4-blue)](https://github.com/calltrace/traverse-lsp/releases)
 [![Traverse](https://img.shields.io/badge/traverse-0.1.4-green)](https://github.com/calltrace/traverse)
 
