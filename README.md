@@ -3,7 +3,7 @@
 [![Version](https://img.shields.io/badge/version-0.1.4-blue)](https://github.com/calltrace/traverse-lsp/releases)
 [![Traverse](https://img.shields.io/badge/traverse-0.1.4-green)](https://github.com/calltrace/traverse)
 
-Language Server Protocol implementation for Solidity that generates call graphs and sequence diagrams at workspace level. Built on [Traverse](https://github.com/calltrace/traverse) analysis engine v0.1.4.
+Language Server Protocol implementation for [Traverse](https://github.com/calltrace/traverse) analysis engine v0.1.4, providing call graph and sequence diagram generation for Solidity smart contracts.
 
 ## Features
 
