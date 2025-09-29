@@ -15,7 +15,7 @@ use lsp_types::{
     CodeActionOptions, CompletionOptions, InitializeParams, ServerCapabilities,
     TextDocumentSyncCapability, TextDocumentSyncKind,
 };
-use std::{sync::mpsc, thread};
+use std::{env, sync::mpsc, thread};
 use tracing::info;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
@@ -27,6 +27,13 @@ mod traverse_adapter;
 mod utils;
 
 fn main() -> Result<()> {
+    // Handle command-line arguments
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 1 && (args[1] == "--version" || args[1] == "-V") {
+        println!("traverse-lsp {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+
     let subscriber = FmtSubscriber::builder()
         .with_env_filter(EnvFilter::from_default_env())
         .with_writer(std::io::stderr)
